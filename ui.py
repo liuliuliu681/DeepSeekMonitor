@@ -4,11 +4,12 @@ from datetime import datetime
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QApplication, QFrame, QGraphicsDropShadowEffect, QHBoxLayout,
+    QApplication, QCheckBox, QFrame, QGraphicsDropShadowEffect, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QScrollArea, QSpinBox,
     QTextEdit, QVBoxLayout, QWidget,
 )
 
+from animation import BalanceAnimator
 from api import fetch_balance
 from config import load_config, save_config
 from logger import setup_logger
@@ -191,7 +192,7 @@ class BigAmountWidget(QFrame):
             }}
             #bigAmountValue {{
                 color: {t["accent"]};
-                font-size: 44px;
+                font-size: 56px;
                 font-weight: 700;
             }}
             #bigAmountLabel {{
@@ -245,6 +246,20 @@ class SettingsPanel(QFrame):
         interval_row.addStretch()
         layout.addLayout(interval_row)
 
+        layout.addSpacing(8)
+
+        self.anim_check = QCheckBox("启用动画")
+        self.anim_check.setObjectName("settingCheck")
+        self.anim_check.setChecked(cfg.get("animation_enabled", True))
+        self.anim_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout.addWidget(self.anim_check)
+
+        self.sound_check = QCheckBox("启用音效")
+        self.sound_check.setObjectName("settingCheck")
+        self.sound_check.setChecked(cfg.get("sound_enabled", True))
+        self.sound_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout.addWidget(self.sound_check)
+
         layout.addSpacing(4)
 
         btn_row = QHBoxLayout()
@@ -290,6 +305,8 @@ class SettingsPanel(QFrame):
             "base_url": self.url_input.text().strip(),
             "balance_endpoint": self.ep_input.text().strip(),
             "refresh_interval": self.interval_spin.value(),
+            "animation_enabled": self.anim_check.isChecked(),
+            "sound_enabled": self.sound_check.isChecked(),
         }
 
     def apply_theme(self, t):
@@ -355,6 +372,22 @@ class SettingsPanel(QFrame):
             #secondaryBtn:hover {{
                 background: {t["accent"]};
                 color: {t["accent_text"]};
+            }}
+            #settingCheck {{
+                color: {t["text"]};
+                font-size: 13px;
+                spacing: 8px;
+            }}
+            #settingCheck::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 2px solid {t["input_border"]};
+                background: {t["input_bg"]};
+            }}
+            #settingCheck::indicator:checked {{
+                background: {t["accent"]};
+                border-color: {t["accent"]};
             }}
         """)
         _shadow(self, t)
@@ -471,6 +504,11 @@ class MainWindow(QWidget):
         self._settings_open = False
         self._log_open = False
         self._worker = None
+        self._last_balance = None
+
+        self._animator = BalanceAnimator(self)
+        self._animator.animations_enabled = self.cfg.get("animation_enabled", True)
+        self._animator.sound_enabled = self.cfg.get("sound_enabled", True)
 
         self.setWindowTitle("DeepSeek 余额监控器")
         self.resize(500, 700)
@@ -689,6 +727,13 @@ class MainWindow(QWidget):
                 self.status_bar.set_status("error", "无余额数据")
             else:
                 total = float(infos[0].get("total_balance", 0))
+                # Trigger animation on balance change
+                if self._last_balance is not None:
+                    if total < self._last_balance:
+                        self._animator.play_decrease()
+                    elif total > self._last_balance:
+                        self._animator.play_increase()
+                self._last_balance = total
                 self.balance_widget.set_value(total)
                 status_text = "正常" if result.get("is_available") else "余额不足"
                 status_kind = "normal" if result.get("is_available") else "error"
@@ -706,6 +751,8 @@ class MainWindow(QWidget):
     def _on_settings_saved(self):
         self.cfg.update(self.settings_panel.get_config())
         self.cfg["theme"] = "dark" if self._dark else "light"
+        self._animator.animations_enabled = self.cfg.get("animation_enabled", True)
+        self._animator.sound_enabled = self.cfg.get("sound_enabled", True)
         save_config(self.cfg)
         self.timer.stop()
         self.timer.start(self.cfg["refresh_interval"] * 1000)

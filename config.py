@@ -17,6 +17,8 @@ DEFAULT_CONFIG = {
     "balance_endpoint": "/user/balance",
     "refresh_interval": 30,
     "theme": "light",
+    "animation_enabled": True,
+    "sound_enabled": True,
 }
 
 
