@@ -470,6 +470,7 @@ class MainWindow(QWidget):
         self._theme = DARK if self._dark else LIGHT
         self._settings_open = False
         self._log_open = False
+        self._worker = None
 
         self.setWindowTitle("DeepSeek 余额监控器")
         self.resize(500, 700)
@@ -671,7 +672,7 @@ class MainWindow(QWidget):
         if not self.cfg.get("api_key", "").strip():
             self.status_bar.set_status("waiting", "等待配置 API Key")
             return
-        if hasattr(self, "_worker") and self._worker.isRunning():
+        if self._worker is not None and self._worker.isRunning():
             return
 
         self.status_bar.set_status("waiting", "查询中...")
@@ -699,6 +700,7 @@ class MainWindow(QWidget):
             self.status_bar.set_status("error", "错误")
             self.status_bar.touch_time()
             self.logger.error(f"余额查询失败: {err}")
+        self._worker = None
 
     # ── Settings save ─────────────────────────────────────────
     def _on_settings_saved(self):
