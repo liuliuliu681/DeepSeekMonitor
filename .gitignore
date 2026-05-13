@@ -2,7 +2,5 @@ __pycache__/
 *.pyc
 *.pyo
 build/
-dist/
-*.spec
 monitor.log
 config.json

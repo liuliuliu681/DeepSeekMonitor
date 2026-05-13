@@ -1,0 +1,7 @@
+{
+  "api_key": "",
+  "base_url": "https://api.deepseek.com",
+  "balance_endpoint": "/user/balance",
+  "refresh_interval": 30,
+  "theme": "light"
+}
