@@ -31,6 +31,7 @@ pyinstaller ^
     --windowed ^
     --name "DeepSeekMonitor" ^
     --add-data "config.json;." ^
+    --add-data "assets;assets" ^
     main.py
 
 if %errorlevel% neq 0 (

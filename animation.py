@@ -1,16 +1,23 @@
 import os
 import random
-import math
+import sys
 
 from PySide6.QtCore import (
     QEasingCurve, QParallelAnimationGroup, QPoint,
-    QPropertyAnimation, QSequentialAnimationGroup, Qt, QTimer,
+    QPropertyAnimation, QSequentialAnimationGroup, Qt, QTimer, QUrl,
 )
 from PySide6.QtGui import QPixmap
 from PySide6.QtMultimedia import QSoundEffect
 from PySide6.QtWidgets import QApplication, QGraphicsOpacityEffect, QLabel
 
-ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+
+def _app_dir():
+    if getattr(sys, "frozen", False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+ASSETS_DIR = os.path.join(_app_dir(), "assets")
 IMAGES_DIR = os.path.join(ASSETS_DIR, "images")
 SOUNDS_DIR = os.path.join(ASSETS_DIR, "sounds")
 
@@ -20,11 +27,12 @@ class BalanceAnimator:
 
     def __init__(self, parent):
         self._parent = parent
-        self._active: list[QPropertyAnimation] = []
+        self._active: list = []
         self._sprites: list[QLabel] = []
+        self._timers: list[QTimer] = []
 
-        self._sound_spend = self._load_sound("spend.wav")
-        self._sound_income = self._load_sound("income.wav")
+        self._sound_spend = self._load_sound("spend.WAV")
+        self._sound_income = self._load_sound("income.WAV")
 
         self.animations_enabled = True
         self.sound_enabled = True
@@ -52,7 +60,7 @@ class BalanceAnimator:
         if not os.path.exists(path):
             return None
         effect = QSoundEffect()
-        effect.setSource(QSoundEffect.SoundSource.fromLocalFile(os.path.abspath(path)))
+        effect.setSource(QUrl.fromLocalFile(os.path.abspath(path)))
         effect.setVolume(0.7)
         return effect
 
@@ -62,6 +70,9 @@ class BalanceAnimator:
         effect.play()
 
     def _clear(self):
+        for t in self._timers:
+            t.stop()
+        self._timers.clear()
         for anim in self._active:
             anim.stop()
         self._active.clear()
@@ -172,12 +183,11 @@ class BalanceAnimator:
             # Stagger start
             delay = i * random.randint(100, 500)
             if delay > 0:
-                timer = QTimer()
+                timer = QTimer(self._parent)
                 timer.setSingleShot(True)
                 timer.timeout.connect(group.start)
                 timer.start(delay)
-                # Keep timer alive by storing reference
-                group.setProperty("_delay_timer", timer)
+                self._timers.append(timer)
             else:
                 group.start()
 
